@@ -20,16 +20,18 @@ jobs:
           curl -s https://api.github.com/repos/Lameguy64/PSn00bSDK/releases/latest \
             | jq -r '.assets[] | select(.name | endswith(".zip")) | .browser_download_url' \
             > urls.txt
-          cat urls.txt
           while read url; do
             name=$(basename "$url")
             curl -L -o "$name" "$url"
             unzip -q -o "$name" || echo "skip $name"
           done < urls.txt
-          echo "--- prologue.mk locations:"
-          find $HOME/sdk -name prologue.mk
-          echo "--- top-level dirs:"
-          find $HOME/sdk -maxdepth 3 -type d | head -n 80
+
+      - name: List SDK files
+        run: |
+          echo "--- .mk / .ld / .a files:"
+          find $HOME/sdk -type f \( -name "*.mk" -o -name "*.ld" -o -name "*.a" \) | head -150
+          echo "--- Linux lib dir:"
+          ls -la $HOME/sdk/PSn00bSDK-0.24-Linux/lib/libpsn00b 2>/dev/null | head -80
 
       - name: Build
         run: |
@@ -40,7 +42,6 @@ jobs:
           fi
           export PSN00BSDK_LIBS=$(dirname "$PROLOGUE")
           export PATH=$(find $HOME/sdk -type d -name bin | tr '\n' ':')$PATH
-          echo "PSN00BSDK_LIBS=$PSN00BSDK_LIBS"
           make
 
       - name: Upload result
