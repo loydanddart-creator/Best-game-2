@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y make curl jq unzip
+        run: sudo apt-get update && sudo apt-get install -y cmake make curl jq unzip
 
       - name: Download PSn00bSDK
         run: |
@@ -26,30 +26,20 @@ jobs:
             unzip -q -o "$name" || echo "skip $name"
           done < urls.txt
 
-      - name: List SDK files
+      - name: Build with CMake
         run: |
-          echo "--- .mk / .ld / .a files:"
-          find $HOME/sdk -type f \( -name "*.mk" -o -name "*.ld" -o -name "*.a" \) | head -150
-          echo "--- Linux lib dir:"
-          ls -la $HOME/sdk/PSn00bSDK-0.24-Linux/lib/libpsn00b 2>/dev/null | head -80
-
-      - name: Build
-        run: |
-          PROLOGUE=$(find $HOME/sdk -name prologue.mk | head -n1)
-          if [ -z "$PROLOGUE" ]; then
-            echo "prologue.mk not found, see the listing above"
-            exit 1
-          fi
-          export PSN00BSDK_LIBS=$(dirname "$PROLOGUE")
-          export PATH=$(find $HOME/sdk -type d -name bin | tr '\n' ':')$PATH
-          make
+          LIBS=$(find $HOME/sdk -type d -path "*lib/libpsn00b" | grep -v win32 | head -n1)
+          TOOLCHAIN=$(find $HOME/sdk -name "sdk.cmake" | grep -v win32 | head -n1)
+          echo "PSN00BSDK_LIBS=$LIBS"
+          echo "TOOLCHAIN=$TOOLCHAIN"
+          export PSN00BSDK_LIBS="$LIBS"
+          export PATH=$(find $HOME/sdk -type d -name bin | grep -v win32 | tr '\n' ':')$PATH
+          cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
 
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
           name: unicorn-ps1
-          path: |
-            *.exe
-            *.bin
-            *.cue
+          path: build/
           if-no-files-found: warn
