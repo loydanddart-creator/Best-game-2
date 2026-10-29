@@ -30,16 +30,23 @@ jobs:
         run: |
           LIBS=$(find $HOME/sdk -type d -path "*lib/libpsn00b" | grep -v win32 | head -n1)
           TOOLCHAIN=$(find $HOME/sdk -name "sdk.cmake" | grep -v win32 | head -n1)
-          echo "PSN00BSDK_LIBS=$LIBS"
-          echo "TOOLCHAIN=$TOOLCHAIN"
           export PSN00BSDK_LIBS="$LIBS"
           export PATH=$(find $HOME/sdk -type d -name bin | grep -v win32 | tr '\n' ':')$PATH
           cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" -DCMAKE_BUILD_TYPE=Release
           cmake --build build
 
+      - name: Convert ELF to PS-EXE
+        run: |
+          ELF2X=$(find $HOME/sdk -name elf2x | grep -v win32 | head -n1)
+          echo "Using $ELF2X"
+          "$ELF2X" -q build/unicorn.elf
+          ls -la build/
+
       - name: Upload result
         uses: actions/upload-artifact@v4
         with:
           name: unicorn-ps1
-          path: build/
+          path: |
+            build/unicorn.exe
+            build/unicorn.elf
           if-no-files-found: warn
