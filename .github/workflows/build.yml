@@ -15,18 +15,26 @@ jobs:
 
       - name: Download PSn00bSDK
         run: |
-          URL=$(curl -s https://api.github.com/repos/Lameguy64/PSn00bSDK/releases/latest \
-            | jq -r '.assets[] | select(.name | test("linux")) | .browser_download_url' | head -n1)
-          echo "Downloading $URL"
-          curl -L -o sdk.tgz "$URL"
-          mkdir -p $HOME/psn00bsdk
-          tar -xzf sdk.tgz -C $HOME/psn00bsdk --strip-components=1 || tar -xzf sdk.tgz -C $HOME/psn00bsdk
+          mkdir -p $HOME/sdk
+          cd $HOME/sdk
+          curl -s https://api.github.com/repos/Lameguy64/PSn00bSDK/releases/latest \
+            | jq -r '.assets[] | select(.name | endswith("linux.zip")) | .browser_download_url' \
+            > urls.txt
+          cat urls.txt
+          while read url; do
+            name=$(basename "$url")
+            curl -L -o "$name" "$url"
+            unzip -q -o "$name"
+          done < urls.txt
+          find $HOME/sdk -maxdepth 3 | head -n 60
 
       - name: Build
         run: |
-          export PSN00BSDK_LIBS=$(find $HOME/psn00bsdk -type d -path "*lib/libpsn00b" | head -n1)
-          echo "Using $PSN00BSDK_LIBS"
-          export PATH=$(dirname $(find $HOME/psn00bsdk -name "mipsel*gcc" -o -name "*mipsel*-gcc" | head -n1)):$PATH
+          PROLOGUE=$(find $HOME/sdk -name prologue.mk | head -n1)
+          export PSN00BSDK_LIBS=$(dirname "$PROLOGUE")
+          export PATH=$(find $HOME/sdk -type d -name bin | tr '\n' ':')$PATH
+          echo "PSN00BSDK_LIBS=$PSN00BSDK_LIBS"
+          which mipsel-none-elf-gcc || which mipsel-unknown-elf-gcc || echo "compiler not found"
           make
 
       - name: Upload result
