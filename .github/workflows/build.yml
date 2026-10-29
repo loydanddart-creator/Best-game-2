@@ -18,23 +18,29 @@ jobs:
           mkdir -p $HOME/sdk
           cd $HOME/sdk
           curl -s https://api.github.com/repos/Lameguy64/PSn00bSDK/releases/latest \
-            | jq -r '.assets[] | select(.name | endswith("linux.zip")) | .browser_download_url' \
+            | jq -r '.assets[] | select(.name | endswith(".zip")) | .browser_download_url' \
             > urls.txt
           cat urls.txt
           while read url; do
             name=$(basename "$url")
             curl -L -o "$name" "$url"
-            unzip -q -o "$name"
+            unzip -q -o "$name" || echo "skip $name"
           done < urls.txt
-          find $HOME/sdk -maxdepth 3 | head -n 60
+          echo "--- prologue.mk locations:"
+          find $HOME/sdk -name prologue.mk
+          echo "--- top-level dirs:"
+          find $HOME/sdk -maxdepth 3 -type d | head -n 80
 
       - name: Build
         run: |
           PROLOGUE=$(find $HOME/sdk -name prologue.mk | head -n1)
+          if [ -z "$PROLOGUE" ]; then
+            echo "prologue.mk not found, see the listing above"
+            exit 1
+          fi
           export PSN00BSDK_LIBS=$(dirname "$PROLOGUE")
           export PATH=$(find $HOME/sdk -type d -name bin | tr '\n' ':')$PATH
           echo "PSN00BSDK_LIBS=$PSN00BSDK_LIBS"
-          which mipsel-none-elf-gcc || which mipsel-unknown-elf-gcc || echo "compiler not found"
           make
 
       - name: Upload result
