@@ -1,0 +1,40 @@
+name: Build PS1
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y make curl jq unzip
+
+      - name: Download PSn00bSDK
+        run: |
+          URL=$(curl -s https://api.github.com/repos/Lameguy64/PSn00bSDK/releases/latest \
+            | jq -r '.assets[] | select(.name | test("linux")) | .browser_download_url' | head -n1)
+          echo "Downloading $URL"
+          curl -L -o sdk.tgz "$URL"
+          mkdir -p $HOME/psn00bsdk
+          tar -xzf sdk.tgz -C $HOME/psn00bsdk --strip-components=1 || tar -xzf sdk.tgz -C $HOME/psn00bsdk
+
+      - name: Build
+        run: |
+          export PSN00BSDK_LIBS=$(find $HOME/psn00bsdk -type d -path "*lib/libpsn00b" | head -n1)
+          echo "Using $PSN00BSDK_LIBS"
+          export PATH=$(dirname $(find $HOME/psn00bsdk -name "mipsel*gcc" -o -name "*mipsel*-gcc" | head -n1)):$PATH
+          make
+
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: unicorn-ps1
+          path: |
+            *.exe
+            *.bin
+            *.cue
+          if-no-files-found: warn
